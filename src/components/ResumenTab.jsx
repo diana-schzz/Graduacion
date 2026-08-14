@@ -51,7 +51,10 @@ export default function ResumenTab() {
     0
   )
   const totalPagadoProveedores = proveedores.reduce((s, p) => s + Number(p.pagado), 0)
-  const diferencia = totalRecaudado - totalContratadoProveedores
+
+  // Lo que realmente tenemos disponible ahora mismo: lo que han abonado
+  // los graduados menos lo que ya se le ha pagado en efectivo a proveedores.
+  const dineroDisponible = totalRecaudado - totalPagadoProveedores
 
   return (
     <div>
@@ -71,14 +74,14 @@ export default function ResumenTab() {
           <div className="stat-sub">de {formatMoney(totalContratadoProveedores)} contratado</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Diferencia (recaudado − contratado)</div>
+          <div className="stat-label">Dinero disponible ahora</div>
           <div
             className="stat-value small"
-            style={{ color: diferencia >= 0 ? 'var(--sage-bright)' : 'var(--rust-bright)' }}
+            style={{ color: dineroDisponible >= 0 ? 'var(--sage-bright)' : 'var(--rust-bright)' }}
           >
-            {formatMoney(diferencia)}
+            {formatMoney(dineroDisponible)}
           </div>
-          <div className="stat-sub">{diferencia >= 0 ? 'A favor' : 'En contra'}</div>
+          <div className="stat-sub">Recaudado − pagado a proveedores</div>
         </div>
       </div>
 

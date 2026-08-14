@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient.js'
 import { formatMoney } from '../utils/format.js'
 import GraduadoModal from './GraduadoModal.jsx'
 import PagosPanel from './PagosPanel.jsx'
+import PlanPagoBadges from './PlanPagoBadges.jsx'
 
 function SearchIcon() {
   return (
@@ -15,6 +16,7 @@ function SearchIcon() {
 
 export default function GraduadosTab() {
   const [graduados, setGraduados] = useState([])
+  const [plan, setPlan] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showModal, setShowModal] = useState(false)
@@ -25,15 +27,16 @@ export default function GraduadosTab() {
 
   async function load() {
     setLoading(true)
-    const { data, error: err } = await supabase
-      .from('graduados_resumen')
-      .select('*')
-      .order('nombre', { ascending: true })
-    if (err) setError(err.message)
+    const [gradRes, planRes] = await Promise.all([
+      supabase.from('graduados_resumen').select('*').order('nombre', { ascending: true }),
+      supabase.from('plan_pagos').select('*').order('numero', { ascending: true }),
+    ])
+    if (gradRes.error) setError(gradRes.error.message)
     else {
-      setGraduados(data)
+      setGraduados(gradRes.data)
       setError(null)
     }
+    if (!planRes.error) setPlan(planRes.data || [])
     setLoading(false)
   }
 
@@ -147,6 +150,7 @@ export default function GraduadosTab() {
                 <th>Invitados</th>
                 <th>Confirmó</th>
                 <th>Mesa</th>
+                <th>Plan de pagos</th>
                 <th className="num">Costo total</th>
                 <th className="num">Abonado</th>
                 <th className="num">Restante</th>
@@ -158,6 +162,7 @@ export default function GraduadosTab() {
                 <FragmentRow
                   key={g.id}
                   g={g}
+                  plan={plan}
                   expanded={expandedId === g.id}
                   onToggle={() => setExpandedId(expandedId === g.id ? null : g.id)}
                   onEdit={() => {
@@ -187,7 +192,7 @@ export default function GraduadosTab() {
   )
 }
 
-function FragmentRow({ g, expanded, onToggle, onEdit, onDelete, onPagoChanged }) {
+function FragmentRow({ g, plan, expanded, onToggle, onEdit, onDelete, onPagoChanged }) {
   return (
     <>
       <tr>
@@ -204,6 +209,9 @@ function FragmentRow({ g, expanded, onToggle, onEdit, onDelete, onPagoChanged })
           </span>
         </td>
         <td data-label="Mesa">{g.mesa || '—'}</td>
+        <td data-label="Plan de pagos">
+          <PlanPagoBadges plan={plan} abonado={Number(g.abonado)} costoTotal={Number(g.costo_total)} />
+        </td>
         <td data-label="Costo total" className="num">
           {formatMoney(g.costo_total)}
         </td>
@@ -226,7 +234,7 @@ function FragmentRow({ g, expanded, onToggle, onEdit, onDelete, onPagoChanged })
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={9} style={{ padding: 0 }}>
+          <td colSpan={10} style={{ padding: 0 }}>
             <PagosPanel graduadoId={g.id} onChanged={onPagoChanged} />
           </td>
         </tr>
