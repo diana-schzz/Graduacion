@@ -7,12 +7,12 @@ const ESTADO_LABEL = {
   pendiente: 'Aún no vence',
 }
 
-export default function PlanPagoBadges({ plan, abonado, costoTotal }) {
+export default function PlanPagoBadges({ plan, abonado, numPersonas }) {
   if (!plan || plan.length === 0) {
     return <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
   }
 
-  const estados = computePlanStatus(plan, abonado, costoTotal)
+  const estados = computePlanStatus(plan, abonado, numPersonas)
   const alerta =
     estados.find((e) => e.estado === 'atrasado') || estados.find((e) => e.estado === 'vence_pronto')
 

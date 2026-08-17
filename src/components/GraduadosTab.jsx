@@ -210,7 +210,7 @@ function FragmentRow({ g, plan, expanded, onToggle, onEdit, onDelete, onPagoChan
         </td>
         <td data-label="Mesa">{g.mesa || '—'}</td>
         <td data-label="Plan de pagos">
-          <PlanPagoBadges plan={plan} abonado={Number(g.abonado)} costoTotal={Number(g.costo_total)} />
+          <PlanPagoBadges plan={plan} abonado={Number(g.abonado)} numPersonas={g.num_invitados + 1} />
         </td>
         <td data-label="Costo total" className="num">
           {formatMoney(g.costo_total)}
