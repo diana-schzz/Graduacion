@@ -1,21 +1,17 @@
 :root {
-  /* Fondo cálido tipo papel, no negro puro: más amigable a la vista */
   --bg: #faf6ee;
   --bg-elev: #ffffff;
   --bg-elev-2: #f3ead9;
 
-  /* Texto de alto contraste (tinta casi negra, no gris apagado) */
   --ink: #2a2420;
   --ink-dim: #675c4f;
   --muted: #9c9080;
 
-  /* Acento dorado más oscuro/saturado: legible sobre fondo claro */
   --gold: #a8790f;
   --gold-bright: #8a6108;
   --gold-line: rgba(168, 121, 15, 0.28);
   --gold-tint: rgba(168, 121, 15, 0.1);
 
-  /* Acento secundario: azul petróleo, cálido y elegante */
   --navy: #1f4a4d;
   --navy-bright: #16373a;
 
@@ -52,8 +48,6 @@ body {
   background: var(--gold-tint);
   color: var(--gold-bright);
 }
-
-/* ---------- Layout shell ---------- */
 
 .shell {
   min-height: 100vh;
@@ -120,8 +114,6 @@ body {
   font-weight: 600;
 }
 
-/* ---------- Nav ---------- */
-
 .nav {
   display: flex;
   justify-content: center;
@@ -156,8 +148,6 @@ body {
   border-radius: 0;
 }
 
-/* ---------- Content ---------- */
-
 .content {
   max-width: 1180px;
   margin: 0 auto;
@@ -184,8 +174,6 @@ body {
   color: var(--gold);
   margin-right: 10px;
 }
-
-/* ---------- Toolbar (búsqueda / filtros) ---------- */
 
 .toolbar {
   display: flex;
@@ -244,8 +232,6 @@ body {
   padding-left: 4px;
 }
 
-/* ---------- Stat cards ---------- */
-
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -288,8 +274,6 @@ body {
   color: var(--ink-dim);
   margin-top: 4px;
 }
-
-/* ---------- Buttons ---------- */
 
 .btn {
   font-family: var(--font-body);
@@ -346,7 +330,37 @@ body {
   font-size: 12px;
 }
 
-/* ---------- Table ---------- */
+/* ---------- Botones de icono (editar / eliminar compactos) ---------- */
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--gold-line);
+  background: transparent;
+  color: var(--navy);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.btn-icon:hover {
+  background: var(--gold-tint);
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+
+.btn-icon.danger {
+  color: var(--rust-bright);
+}
+
+.btn-icon.danger:hover {
+  background: rgba(179, 84, 63, 0.1);
+  border-color: var(--rust);
+}
 
 .table-wrap {
   border: 1px solid var(--gold-line);
@@ -423,8 +437,6 @@ tbody tr:last-child td {
   display: flex;
   gap: 6px;
 }
-
-/* ---------- Forms / Modal ---------- */
 
 .overlay {
   position: fixed;
@@ -525,8 +537,6 @@ tbody tr:last-child td {
   color: var(--gold-bright);
 }
 
-/* ---------- Misc ---------- */
-
 .empty {
   text-align: center;
   padding: 60px 20px;
@@ -591,6 +601,133 @@ tbody tr:last-child td {
   font-size: 13px;
   color: var(--ink-dim);
   line-height: 1.5;
+}
+
+/* ---------- Dashboard de proveedores (barras + donas) ---------- */
+
+.budget-dashboard {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 1px;
+  background: var(--gold-line);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.budget-panel {
+  background: var(--bg-elev);
+  padding: 22px 24px;
+}
+
+.budget-panel h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 16px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 130px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+}
+
+.bar-row .bar-label {
+  color: var(--ink-dim);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bar-track {
+  position: relative;
+  height: 10px;
+  background: var(--bg-elev-2);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  background: var(--navy);
+  border-radius: 20px;
+  transition: width 0.4s ease;
+}
+
+.bar-fill.complete {
+  background: var(--sage-bright);
+}
+
+.bar-fill.over {
+  background: var(--rust-bright);
+}
+
+.bar-amount {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  font-size: 11.5px;
+}
+
+.donut-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+}
+
+.donut-center-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--navy);
+}
+
+.donut-center-sub {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-dim);
+}
+
+.donut-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@media (max-width: 760px) {
+  .budget-dashboard {
+    grid-template-columns: 1fr;
+  }
+  .bar-row {
+    grid-template-columns: 100px 1fr auto;
+  }
 }
 
 @media (max-width: 640px) {
