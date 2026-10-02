@@ -2,9 +2,11 @@ import { useState } from 'react'
 import GraduadosTab from './components/GraduadosTab.jsx'
 import ProveedoresTab from './components/ProveedoresTab.jsx'
 import ResumenTab from './components/ResumenTab.jsx'
+import MesasTab from './components/MesasTab.jsx'
 
 const TABS = [
   { key: 'graduados', label: 'Graduados & Invitados' },
+  { key: 'mesas', label: 'Mesas' },
   { key: 'proveedores', label: 'Proveedores' },
   { key: 'resumen', label: 'Resumen' },
 ]
@@ -70,6 +72,7 @@ export default function App() {
 
       <main className="content">
         {tab === 'graduados' && <GraduadosTab />}
+        {tab === 'mesas' && <MesasTab />}
         {tab === 'proveedores' && <ProveedoresTab />}
         {tab === 'resumen' && <ResumenTab />}
       </main>
