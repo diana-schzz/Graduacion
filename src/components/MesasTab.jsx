@@ -52,6 +52,7 @@ export default function MesasTab() {
   // Filtro de la tabla "Sin mesa asignada" por cantidad de personas pendientes
   const [filtroMin, setFiltroMin] = useState('')
   const [filtroMax, setFiltroMax] = useState('')
+  const [filtroGrupito, setFiltroGrupito] = useState('')
 
   async function load() {
     setLoading(true)
@@ -110,15 +111,24 @@ export default function MesasTab() {
     [parties, asignadoPorGraduado]
   )
 
+  const gruposPendientes = useMemo(() => {
+    const set = new Set()
+    pendientes.forEach((p) => {
+      if (p.grupito?.trim()) set.add(p.grupito.trim())
+    })
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [pendientes])
+
   const pendientesFiltrados = useMemo(() => {
     const min = filtroMin !== '' ? Number(filtroMin) : null
     const max = filtroMax !== '' ? Number(filtroMax) : null
     return pendientes.filter((p) => {
       if (min !== null && p.restante < min) return false
       if (max !== null && p.restante > max) return false
+      if (filtroGrupito && (p.grupito || '').trim() !== filtroGrupito) return false
       return true
     })
-  }, [pendientes, filtroMin, filtroMax])
+  }, [pendientes, filtroMin, filtroMax, filtroGrupito])
 
   const ocupadoPorMesa = useMemo(() => {
     const map = {}
@@ -384,13 +394,25 @@ export default function MesasTab() {
             value={filtroMax}
             onChange={(e) => setFiltroMax(e.target.value)}
           />
-          {(filtroMin !== '' || filtroMax !== '') && (
+          <span className="filtro-pendientes-label" style={{ marginLeft: 10 }}>
+            Grupito:
+          </span>
+          <select value={filtroGrupito} onChange={(e) => setFiltroGrupito(e.target.value)}>
+            <option value="">Todos</option>
+            {gruposPendientes.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+          {(filtroMin !== '' || filtroMax !== '' || filtroGrupito !== '') && (
             <button
               className="btn-icon"
               title="Quitar filtro"
               onClick={() => {
                 setFiltroMin('')
                 setFiltroMax('')
+                setFiltroGrupito('')
               }}
             >
               ✕
