@@ -41,25 +41,30 @@ function TrashIcon() {
 export default function MesasTab() {
   const [mesas, setMesas] = useState([])
   const [graduados, setGraduados] = useState([])
+  const [asientos, setAsientos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [arranging, setArranging] = useState(false)
+  // { [graduadoId]: { mesaId, cantidad } } valores en edición del formulario de asignación manual
+  const [form, setForm] = useState({})
 
   async function load() {
     setLoading(true)
-    const [mesasRes, gradRes] = await Promise.all([
+    const [mesasRes, gradRes, asientosRes] = await Promise.all([
       supabase.from('mesas').select('*').order('orden', { ascending: true }),
       supabase
         .from('graduados')
-        .select('id, nombre, grupito, num_invitados, confirmado, mesa_id')
+        .select('id, nombre, grupito, num_invitados, confirmado')
         .order('nombre', { ascending: true }),
+      supabase.from('asientos_mesa').select('*'),
     ])
-    if (mesasRes.error || gradRes.error) setError((mesasRes.error || gradRes.error).message)
-    else setError(null)
+    const err = mesasRes.error || gradRes.error || asientosRes.error
+    setError(err ? err.message : null)
     setMesas(mesasRes.data || [])
     setGraduados(gradRes.data || [])
+    setAsientos(asientosRes.data || [])
     setLoading(false)
   }
 
@@ -74,41 +79,102 @@ export default function MesasTab() {
         nombre: g.nombre,
         grupito: g.grupito,
         tamaño: g.num_invitados + 1,
-        mesa_id: g.mesa_id,
       })),
     [graduados]
   )
 
-  const asignados = parties.filter((p) => p.mesa_id)
-  const sinMesa = parties.filter((p) => !p.mesa_id)
+  const colorPorGraduado = useMemo(() => {
+    const map = {}
+    parties.forEach((p, i) => {
+      map[p.id] = PALETA[i % PALETA.length]
+    })
+    return map
+  }, [parties])
+
+  const asignadoPorGraduado = useMemo(() => {
+    const map = {}
+    asientos.forEach((a) => {
+      map[a.graduado_id] = (map[a.graduado_id] || 0) + a.cantidad
+    })
+    return map
+  }, [asientos])
+
+  const pendientes = useMemo(
+    () =>
+      parties
+        .map((p) => ({ ...p, asignado: asignadoPorGraduado[p.id] || 0, restante: p.tamaño - (asignadoPorGraduado[p.id] || 0) }))
+        .filter((p) => p.restante > 0),
+    [parties, asignadoPorGraduado]
+  )
+
+  const ocupadoPorMesa = useMemo(() => {
+    const map = {}
+    asientos.forEach((a) => {
+      map[a.mesa_id] = (map[a.mesa_id] || 0) + a.cantidad
+    })
+    return map
+  }, [asientos])
 
   const totalCapacidad = mesas.reduce((s, m) => s + m.capacidad, 0)
-  const totalOcupado = asignados.reduce((s, p) => s + p.tamaño, 0)
+  const totalOcupado = asientos.reduce((s, a) => s + a.cantidad, 0)
   const totalPersonas = parties.reduce((s, p) => s + p.tamaño, 0)
+  const totalPendiente = pendientes.reduce((s, p) => s + p.restante, 0)
 
   async function handleDeleteMesa(m) {
     if (
       !confirm(
-        `¿Eliminar "${m.nombre}"? Los graduados que estaban ahí quedarán sin mesa asignada.`
+        `¿Eliminar "${m.nombre}"? Los acomodos que tenía esa mesa se eliminarán y esos graduados quedarán sin mesa asignada.`
       )
     )
       return
+    await supabase.from('asientos_mesa').delete().eq('mesa_id', m.id)
     await supabase.from('mesas').delete().eq('id', m.id)
     load()
   }
 
-  async function handleAsignar(graduadoId, mesaId) {
-    await supabase
-      .from('graduados')
-      .update({ mesa_id: mesaId || null })
-      .eq('id', graduadoId)
+  function capacidadRestante(mesaId) {
+    const mesa = mesas.find((m) => m.id === mesaId)
+    if (!mesa) return 0
+    return mesa.capacidad - (ocupadoPorMesa[mesaId] || 0)
+  }
+
+  async function handleAsignarManual(party) {
+    const valores = form[party.id] || {}
+    const mesaId = valores.mesaId
+    const cantidad = Number(valores.cantidad ?? party.restante)
+
+    if (!mesaId) {
+      alert('Elige una mesa.')
+      return
+    }
+    if (!cantidad || cantidad <= 0) {
+      alert('La cantidad debe ser mayor a 0.')
+      return
+    }
+    if (cantidad > party.restante) {
+      alert(`Solo quedan ${party.restante} persona(s) sin mesa de ${party.nombre}.`)
+      return
+    }
+    const libres = capacidadRestante(mesaId)
+    if (cantidad > libres) {
+      alert(`Esa mesa solo tiene ${libres} lugar(es) libre(s).`)
+      return
+    }
+
+    await supabase.from('asientos_mesa').insert({ graduado_id: party.id, mesa_id: mesaId, cantidad })
+    setForm((f) => ({ ...f, [party.id]: { mesaId: '', cantidad: '' } }))
+    load()
+  }
+
+  async function handleQuitar(asientoId) {
+    await supabase.from('asientos_mesa').delete().eq('id', asientoId)
     load()
   }
 
   async function handleAutoAcomodar() {
     if (
       !confirm(
-        'Esto va a reacomodar a TODOS los graduados en las mesas disponibles, agrupando por "Grupito" cuando sea posible. Los acomodos manuales que ya tengas se van a reemplazar. ¿Continuar?'
+        'Esto va a reacomodar a TODOS los graduados en las mesas disponibles, agrupando por "Grupito" cuando sea posible y dividiendo a alguien entre varias mesas solo si no cabe completo en ninguna. Los acomodos manuales que ya tengas se van a reemplazar. ¿Continuar?'
       )
     )
       return
@@ -121,36 +187,44 @@ export default function MesasTab() {
     setArranging(true)
     const { assignments, sinLugar } = autoArrange(parties, mesas)
 
-    await Promise.all(
-      Object.entries(assignments).map(([graduadoId, mesaId]) =>
-        supabase.from('graduados').update({ mesa_id: mesaId }).eq('id', graduadoId)
+    // Limpia todos los acomodos actuales y guarda los nuevos
+    await supabase.from('asientos_mesa').delete().gte('cantidad', 0)
+    if (assignments.length > 0) {
+      await supabase.from('asientos_mesa').insert(
+        assignments.map((a) => ({ graduado_id: a.graduadoId, mesa_id: a.mesaId, cantidad: a.cantidad }))
       )
-    )
-    // A quien no alcanzó lugar, se deja explícitamente sin mesa
-    await Promise.all(
-      sinLugar.map((p) => supabase.from('graduados').update({ mesa_id: null }).eq('id', p.id))
-    )
+    }
 
     setArranging(false)
     await load()
 
     if (sinLugar.length > 0) {
+      const detalle = sinLugar.map((p) => `${p.nombre} (${p.cantidad})`).join(', ')
       alert(
-        `Acomodo listo. ${sinLugar.length} persona(s) no encontraron lugar porque no hay capacidad suficiente: ${sinLugar
-          .map((p) => p.nombre)
-          .join(', ')}. Agrega otra mesa o ajusta capacidades.`
+        `Acomodo listo. No alcanzó lugar para: ${detalle}. Agrega otra mesa o amplía capacidades.`
       )
     }
   }
 
   function construirFilled(mesaId, capacidad) {
-    const ocupantes = asignados.filter((p) => p.mesa_id === mesaId)
+    const ocupantes = asientos
+      .filter((a) => a.mesa_id === mesaId)
+      .map((a) => {
+        const grad = parties.find((p) => p.id === a.graduado_id)
+        return {
+          asientoId: a.id,
+          graduadoId: a.graduado_id,
+          nombre: grad ? grad.nombre : '(graduado eliminado)',
+          tamañoTotal: grad ? grad.tamaño : a.cantidad,
+          cantidad: a.cantidad,
+          color: colorPorGraduado[a.graduado_id] || '#999',
+        }
+      })
     const filled = new Array(capacidad).fill(null)
     let idx = 0
-    ocupantes.forEach((p, i) => {
-      const color = PALETA[i % PALETA.length]
-      for (let s = 0; s < p.tamaño && idx < capacidad; s++, idx++) {
-        filled[idx] = { color }
+    ocupantes.forEach((o) => {
+      for (let s = 0; s < o.cantidad && idx < capacidad; s++, idx++) {
+        filled[idx] = { color: o.color }
       }
     })
     return { filled, ocupantes }
@@ -171,8 +245,8 @@ export default function MesasTab() {
         </div>
         <div className="stat-card">
           <div className="stat-label">Sin mesa asignada</div>
-          <div className="stat-value">{sinMesa.reduce((s, p) => s + p.tamaño, 0)}</div>
-          <div className="stat-sub">{sinMesa.length} graduado(s) por acomodar</div>
+          <div className="stat-value">{totalPendiente}</div>
+          <div className="stat-sub">{pendientes.length} graduado(s) por acomodar</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Espacio libre</div>
@@ -211,7 +285,7 @@ export default function MesasTab() {
         <div className="mesas-grid">
           {mesas.map((m) => {
             const { filled, ocupantes } = construirFilled(m.id, m.capacidad)
-            const ocupado = ocupantes.reduce((s, p) => s + p.tamaño, 0)
+            const ocupado = ocupantes.reduce((s, o) => s + o.cantidad, 0)
             return (
               <div className="mesa-card" key={m.id}>
                 <div className="mesa-card-header">
@@ -252,15 +326,15 @@ export default function MesasTab() {
                   </p>
                 ) : (
                   <ul className="mesa-occupant-list">
-                    {ocupantes.map((p, i) => (
-                      <li key={p.id}>
-                        <span
-                          className="mesa-occupant-dot"
-                          style={{ background: PALETA[i % PALETA.length] }}
-                        />
-                        <span className="mesa-occupant-name">{p.nombre}</span>
-                        <span className="mesa-occupant-size">({p.tamaño})</span>
-                        <button className="mesa-occupant-remove" onClick={() => handleAsignar(p.id, null)}>
+                    {ocupantes.map((o) => (
+                      <li key={o.asientoId}>
+                        <span className="mesa-occupant-dot" style={{ background: o.color }} />
+                        <span className="mesa-occupant-name">{o.nombre}</span>
+                        <span className="mesa-occupant-size">
+                          ({o.cantidad}
+                          {o.cantidad !== o.tamañoTotal ? ` de ${o.tamañoTotal} · dividido` : ''})
+                        </span>
+                        <button className="mesa-occupant-remove" onClick={() => handleQuitar(o.asientoId)}>
                           quitar
                         </button>
                       </li>
@@ -279,7 +353,7 @@ export default function MesasTab() {
         </h2>
       </div>
 
-      {sinMesa.length === 0 ? (
+      {pendientes.length === 0 ? (
         <div className="empty">Todos los graduados ya tienen mesa.</div>
       ) : (
         <div className="table-wrap">
@@ -288,43 +362,68 @@ export default function MesasTab() {
               <tr>
                 <th>Nombre</th>
                 <th>Grupito</th>
-                <th>Personas</th>
-                <th>Asignar a mesa</th>
+                <th>Por acomodar</th>
+                <th>Cantidad</th>
+                <th>Mesa</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {sinMesa.map((p) => (
-                <tr key={p.id}>
-                  <td data-label="Nombre">{p.nombre}</td>
-                  <td data-label="Grupito">{p.grupito || '—'}</td>
-                  <td data-label="Personas">{p.tamaño}</td>
-                  <td data-label="Asignar a mesa">
-                    <select
-                      defaultValue=""
-                      onChange={(e) => {
-                        if (e.target.value) handleAsignar(p.id, e.target.value)
-                      }}
-                    >
-                      <option value="" disabled>
-                        Elegir mesa…
-                      </option>
-                      {mesas.map((m) => {
-                        const ocupado = asignados
-                          .filter((a) => a.mesa_id === m.id)
-                          .reduce((s, a) => s + a.tamaño, 0)
-                        const restante = m.capacidad - ocupado
-                        const cabe = restante >= p.tamaño
-                        return (
-                          <option key={m.id} value={m.id} disabled={!cabe}>
-                            {m.nombre} ({restante} libre{restante === 1 ? '' : 's'}
-                            {!cabe ? ' · no alcanza' : ''})
-                          </option>
-                        )
-                      })}
-                    </select>
-                  </td>
-                </tr>
-              ))}
+              {pendientes.map((p) => {
+                const valores = form[p.id] || {}
+                return (
+                  <tr key={p.id}>
+                    <td data-label="Nombre">
+                      {p.nombre}
+                      {p.asignado > 0 && (
+                        <div className="mesa-occupant-size" style={{ marginTop: 2 }}>
+                          ya tiene {p.asignado} de {p.tamaño} sentado(s) en otra mesa
+                        </div>
+                      )}
+                    </td>
+                    <td data-label="Grupito">{p.grupito || '—'}</td>
+                    <td data-label="Por acomodar">{p.restante}</td>
+                    <td data-label="Cantidad">
+                      <input
+                        type="number"
+                        min="1"
+                        max={p.restante}
+                        placeholder={String(p.restante)}
+                        value={valores.cantidad ?? ''}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, [p.id]: { ...valores, cantidad: e.target.value } }))
+                        }
+                        style={{ width: 70 }}
+                      />
+                    </td>
+                    <td data-label="Mesa">
+                      <select
+                        value={valores.mesaId ?? ''}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, [p.id]: { ...valores, mesaId: e.target.value } }))
+                        }
+                      >
+                        <option value="" disabled>
+                          Elegir mesa…
+                        </option>
+                        {mesas.map((m) => {
+                          const restante = capacidadRestante(m.id)
+                          return (
+                            <option key={m.id} value={m.id} disabled={restante <= 0}>
+                              {m.nombre} ({restante} libre{restante === 1 ? '' : 's'})
+                            </option>
+                          )
+                        })}
+                      </select>
+                    </td>
+                    <td data-label="">
+                      <button className="btn" onClick={() => handleAsignarManual(p)}>
+                        Asignar
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

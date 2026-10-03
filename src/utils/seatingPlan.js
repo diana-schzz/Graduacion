@@ -1,10 +1,16 @@
 // Acomoda graduados (cada uno con su grupo de invitados) en mesas,
-// intentando mantener juntos a quienes comparten el mismo "grupito".
+// intentando mantener juntos a quienes comparten el mismo "grupito",
+// y dividiendo a un mismo graduado entre varias mesas SOLO cuando es
+// inevitable (su tamaño no cabe completo en ninguna mesa disponible).
 //
 // parties: [{ id, nombre, tamaño, grupito }]  (tamaño = num_invitados + 1)
 // mesas:   [{ id, nombre, capacidad }]
 //
-// Devuelve { assignments: { graduadoId: mesaId }, sinLugar: [party, ...] }
+// Devuelve:
+//   {
+//     assignments: [{ graduadoId, mesaId, cantidad }, ...],  // una fila por "trozo"
+//     sinLugar: [{ id, nombre, cantidad }, ...]               // personas que no cupieron en ningún lado
+//   }
 
 export function autoArrange(parties, mesas) {
   // 1. Agrupa por grupito (sin grupito = grupo de una sola persona/party)
@@ -28,33 +34,52 @@ export function autoArrange(parties, mesas) {
     .map((m) => ({ id: m.id, capacidad: m.capacidad, restante: m.capacidad }))
     .sort((a, b) => b.capacidad - a.capacidad)
 
-  const assignments = {}
+  const assignments = []
   const sinLugar = []
 
-  function colocar(party, mesa) {
-    assignments[party.id] = mesa.id
+  function colocarCompleto(party, mesa) {
+    assignments.push({ graduadoId: party.id, mesaId: mesa.id, cantidad: party.tamaño })
     mesa.restante -= party.tamaño
+  }
+
+  // Reparte a UNA persona (con todos sus invitados) entre varias mesas,
+  // usando siempre primero la mesa con más espacio libre.
+  function dividirEntreMesas(party) {
+    let faltante = party.tamaño
+    const ordenadas = [...estadoMesas].sort((a, b) => b.restante - a.restante)
+    for (const mesa of ordenadas) {
+      if (faltante <= 0) break
+      if (mesa.restante <= 0) continue
+      const cantidad = Math.min(mesa.restante, faltante)
+      assignments.push({ graduadoId: party.id, mesaId: mesa.id, cantidad })
+      mesa.restante -= cantidad
+      faltante -= cantidad
+    }
+    if (faltante > 0) {
+      sinLugar.push({ id: party.id, nombre: party.nombre, cantidad: faltante })
+    }
   }
 
   grupos.forEach((grupo) => {
     // Intenta meter el grupito completo en una sola mesa
     const mesaCompleta = estadoMesas.find((m) => m.restante >= grupo.total)
     if (mesaCompleta) {
-      grupo.miembros.forEach((party) => colocar(party, mesaCompleta))
+      grupo.miembros.forEach((party) => colocarCompleto(party, mesaCompleta))
       return
     }
 
-    // No cabe completo: reparte lo menos posible, de mayor a menor tamaño,
-    // buscando siempre la mesa más ajustada que todavía alcance (best-fit).
+    // No cabe completo: coloca a cada miembro, de mayor a menor tamaño,
+    // intentando primero una sola mesa (best-fit); si ni la mesa con más
+    // espacio libre alcanza para ese miembro, se divide entre varias mesas.
     const miembrosOrdenados = [...grupo.miembros].sort((a, b) => b.tamaño - a.tamaño)
     miembrosOrdenados.forEach((party) => {
       const candidatas = estadoMesas
         .filter((m) => m.restante >= party.tamaño)
         .sort((a, b) => a.restante - b.restante)
       if (candidatas.length > 0) {
-        colocar(party, candidatas[0])
+        colocarCompleto(party, candidatas[0])
       } else {
-        sinLugar.push(party)
+        dividirEntreMesas(party)
       }
     })
   })
