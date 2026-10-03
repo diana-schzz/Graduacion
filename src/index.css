@@ -860,3 +860,21 @@ tbody tr:last-child td {
 .mesa-occupant-remove:hover {
   color: var(--rust);
 }
+
+.filtro-pendientes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.filtro-pendientes-label {
+  font-weight: 600;
+}
+
+.filtro-pendientes input[type='number'] {
+  width: 70px;
+}

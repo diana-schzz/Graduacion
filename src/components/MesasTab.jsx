@@ -49,6 +49,9 @@ export default function MesasTab() {
   const [arranging, setArranging] = useState(false)
   // { [graduadoId]: { mesaId, cantidad } } valores en edición del formulario de asignación manual
   const [form, setForm] = useState({})
+  // Filtro de la tabla "Sin mesa asignada" por cantidad de personas pendientes
+  const [filtroMin, setFiltroMin] = useState('')
+  const [filtroMax, setFiltroMax] = useState('')
 
   async function load() {
     setLoading(true)
@@ -106,6 +109,16 @@ export default function MesasTab() {
         .filter((p) => p.restante > 0),
     [parties, asignadoPorGraduado]
   )
+
+  const pendientesFiltrados = useMemo(() => {
+    const min = filtroMin !== '' ? Number(filtroMin) : null
+    const max = filtroMax !== '' ? Number(filtroMax) : null
+    return pendientes.filter((p) => {
+      if (min !== null && p.restante < min) return false
+      if (max !== null && p.restante > max) return false
+      return true
+    })
+  }, [pendientes, filtroMin, filtroMax])
 
   const ocupadoPorMesa = useMemo(() => {
     const map = {}
@@ -353,8 +366,46 @@ export default function MesasTab() {
         </h2>
       </div>
 
+      {pendientes.length > 0 && (
+        <div className="filtro-pendientes">
+          <span className="filtro-pendientes-label">Filtrar por personas pendientes:</span>
+          <input
+            type="number"
+            min="1"
+            placeholder="mín."
+            value={filtroMin}
+            onChange={(e) => setFiltroMin(e.target.value)}
+          />
+          <span>–</span>
+          <input
+            type="number"
+            min="1"
+            placeholder="máx."
+            value={filtroMax}
+            onChange={(e) => setFiltroMax(e.target.value)}
+          />
+          {(filtroMin !== '' || filtroMax !== '') && (
+            <button
+              className="btn-icon"
+              title="Quitar filtro"
+              onClick={() => {
+                setFiltroMin('')
+                setFiltroMax('')
+              }}
+            >
+              ✕
+            </button>
+          )}
+          <span className="mesa-occupant-size">
+            {pendientesFiltrados.length} de {pendientes.length} graduado(s)
+          </span>
+        </div>
+      )}
+
       {pendientes.length === 0 ? (
         <div className="empty">Todos los graduados ya tienen mesa.</div>
+      ) : pendientesFiltrados.length === 0 ? (
+        <div className="empty">Ningún graduado pendiente coincide con ese filtro.</div>
       ) : (
         <div className="table-wrap">
           <table>
@@ -369,7 +420,7 @@ export default function MesasTab() {
               </tr>
             </thead>
             <tbody>
-              {pendientes.map((p) => {
+              {pendientesFiltrados.map((p) => {
                 const valores = form[p.id] || {}
                 return (
                   <tr key={p.id}>
