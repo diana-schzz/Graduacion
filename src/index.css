@@ -878,3 +878,22 @@ tbody tr:last-child td {
 .filtro-pendientes input[type='number'] {
   width: 70px;
 }
+
+/* Resumen: proyección ingreso vs. contratado */
+.proyeccion-panel {
+  margin-bottom: 28px;
+}
+
+.proyeccion-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gold-line);
+  font-size: 14px;
+}
+
+.proyeccion-total {
+  font-size: 16px;
+  border-bottom: none;
+}

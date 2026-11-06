@@ -45,6 +45,16 @@ export default function ResumenTab() {
   const totalPagadoProveedores = proveedores.reduce((s, p) => s + Number(p.pagado), 0)
   const dineroDisponible = totalRecaudado - totalPagadoProveedores
 
+  // Proyección: lo que recaudaríamos en total (cobrado + lo que falta por cobrar)
+  // contra lo que se contrató con proveedores
+  const ingresoTotalEsperado = totalRecaudado + totalRestanteCobrar
+  const margenProyectado = ingresoTotalEsperado - totalContratadoProveedores
+  const cubierto = margenProyectado >= 0
+  const porcentajeCubierto =
+    totalContratadoProveedores > 0
+      ? Math.min((ingresoTotalEsperado / totalContratadoProveedores) * 100, 100)
+      : 0
+
   const conTotal = proveedores.filter((p) => p.total_contratado)
   const circunferencia = 2 * Math.PI * 52
 
@@ -92,6 +102,43 @@ export default function ResumenTab() {
           <div className="stat-value">{proveedores.length}</div>
         </div>
       </div>
+
+      <div className="section-head">
+        <h2 className="section-title">
+          <span className="divider-mark">✦</span>Proyección: ingreso total vs. contratado
+        </h2>
+      </div>
+
+      {!loading && (
+        <div className="budget-panel proyeccion-panel">
+          <div className="proyeccion-row">
+            <span>Ingreso total esperado (recaudado + falta cobrar)</span>
+            <b>{formatMoney(ingresoTotalEsperado)}</b>
+          </div>
+          <div className="proyeccion-row">
+            <span>Total contratado con proveedores</span>
+            <b>− {formatMoney(totalContratadoProveedores)}</b>
+          </div>
+          <div className="proyeccion-row proyeccion-total">
+            <span>{cubierto ? 'Sobrante proyectado' : 'Faltante proyectado'}</span>
+            <b style={{ color: cubierto ? 'var(--sage-bright)' : 'var(--rust-bright)' }}>
+              {cubierto ? '' : '− '}
+              {formatMoney(Math.abs(margenProyectado))}
+            </b>
+          </div>
+          <div className="bar-track" style={{ marginTop: 14 }}>
+            <div
+              className={`bar-fill ${cubierto ? 'complete' : ''}`}
+              style={{ width: `${porcentajeCubierto}%` }}
+            />
+          </div>
+          <p className="text-block" style={{ marginTop: 8 }}>
+            {cubierto
+              ? 'Si todos los graduados terminan de pagar, el ingreso cubre lo contratado.'
+              : 'Aunque todos terminen de pagar, el ingreso no alcanza a cubrir lo contratado.'}
+          </p>
+        </div>
+      )}
 
       <div className="section-head">
         <h2 className="section-title">
